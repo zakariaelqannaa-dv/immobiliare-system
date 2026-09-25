@@ -157,23 +157,6 @@ scaffolding is included (`alembic.ini`, `alembic/env.py` — autogenerate from
 alembic revision --autogenerate -m "describe change"
 alembic upgrade head
 ```
-
-## 🖥 Screenshots
-
-> Add yours here — suggested captures:
-
-```text
-docs/screenshots/dashboard.png
-docs/screenshots/properties.png
-docs/screenshots/property-detail.png
-docs/screenshots/reports.png
-```
-
-```markdown
-![Dashboard](docs/screenshots/dashboard.png)
-![Properties](docs/screenshots/properties.png)
-```
-
 ## ⌨️ Shortcuts
 
 | Keys | Action |
