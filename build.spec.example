@@ -1,0 +1,8 @@
+# PyInstaller spec example
+# pyinstaller --noconfirm --windowed --name ImmobiliareSystem app/main.py
+# -*- mode: python -*-
+block_cipher = None
+a = Analysis(['app/main.py'], pathex=['.'], hiddenimports=['sqlalchemy', 'alembic', 'argon2', 'cryptography', 'keyring.backends'], noarchive=False)
+pyz = PYZ(a.pure, a.zipped_data)
+exe = EXE(pyz, a.scripts, name='ImmobiliareSystem', console=False)
+coll = COLLECT(exe, a.binaries, a.datas, name='ImmobiliareSystem')

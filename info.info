@@ -1,0 +1,273 @@
+project structure is:
+immobiliare_system/
+├── app/
+│	├── main.py
+│	├── config/
+│	│	├── settings.py
+│	│	└── logging_config.py
+│	├── database/
+│	│	├── connection.py
+│	│	├── models/
+│	│	├── repositories/
+│	│	└── migrations/
+│	├── security/
+│	│	├── auth.py
+│	│	├── password.py
+│	│	├── encryption.py
+│	│	├── permissions.py
+│	│	└── session.py
+│	├── services/
+│	│	├── property_service.py
+│	│	├── client_service.py
+│	│	├── contract_service.py
+│	│	├── payment_service.py
+│	│	├── document_service.py
+│	│	├── visit_service.py
+│	│	├── report_service.py
+│	│	└── backup_service.py
+│	├── gui/
+│	│	├── windows/
+│	│	├── dialogs/
+│	│	├── widgets/
+│	│	├── pages/
+│	│	└── resources/
+│	├── validators/
+│	├── utils/
+│	└── reports/
+├── data/
+├── documents/
+├── backups/
+├── tests/
+├── requirements.txt
+├── README.md
+└── pyproject.toml
+
+The main modules should include:
+Dashboard
+Properties
+Owners
+Clients
+Agents
+Visits
+Appointments
+Contracts
+Rentals
+Sales
+Payments
+Expenses
+Documents
+Tasks
+Calendar
+Reports
+Users & Roles
+Settings
+Audit Log
+Backup / Restore
+
+For a property, store things such as:
+Property ID
+Internal Code
+Type
+Status
+Address
+City
+CAP
+Province
+Region
+Floor
+Rooms
+Bedrooms
+Bathrooms
+Surface m²
+Commercial Surface
+Garden
+Terrace
+Balcony
+Garage
+Parking
+Elevator
+Heating
+Air Conditioning
+Energy Class
+Energy Consumption
+Furnished
+Pets Allowed
+Price
+Monthly Rent
+Condominium Fees
+Deposit
+Description
+Owner
+Assigned Agent
+Publication Status
+Created At
+Updated At
+
+The search system should support:
+Price min/max
+Rent min/max
+Surface min/max
+City
+CAP
+Property type
+Sale/Rent
+Rooms
+Bedrooms
+Bathrooms
+Energy class
+Garage
+Parking
+Elevator
+Garden
+Terrace
+Furnished
+Available/Reserved/Sold/Rented
+Owner
+Agent
+
+Security should be designed from the beginning:
+Argon2id password hashing
+Role-based access control
+Admin / Manager / Agent / Accountant / Viewer roles
+Automatic session timeout
+Login attempt protection
+Audit logging
+Parameterized SQL only
+Input validation
+File upload validation
+Safe file names
+Restricted document directories
+Encrypted sensitive fields
+Encrypted application secrets
+OS keyring for credentials
+Secure backup handling
+Database integrity checks
+Automatic backups
+Restore validation
+Error logging without leaking secrets
+
+The database should contain entities roughly like:
+users
+roles
+permissions
+user_roles
+properties
+property_images
+property_documents
+owners
+clients
+agents
+visits
+appointments
+contracts
+sales
+rentals
+payments
+expenses
+tasks
+notes
+notifications
+audit_logs
+settings
+backups
+
+The GUI should have a professional layout:
+┌──────────────────────────────────────────────────────────────┐
+│ Immobiliare System                         User   Settings  │
+├───────────────┬──────────────────────────────────────────────┤
+│ Dashboard     │                                              │
+│ Properties    │                  MAIN CONTENT                │
+│ Owners        │                                              │
+│ Clients       │                                              │
+│ Visits        │                                              │
+│ Contracts     │                                              │
+│ Payments      │                                              │
+│ Documents     │                                              │
+│ Calendar      │                                              │
+│ Reports       │                                              │
+│ Users         │                                              │
+│ Audit Log     │                                              │
+│ Backup        │                                              │
+└───────────────┴──────────────────────────────────────────────┘
+
+For the property page, use:
+[Search]
+[Advanced Filters]
+[New Property]
+[Edit]
+[Delete]
+[Duplicate]
+[Archive]
+
+Property table
+---------------------------------------------------------------
+Code | Type | City | Price | Surface | Status | Agent
+---------------------------------------------------------------
+
+Property details
+├── General
+├── Description
+├── Photos
+├── Documents
+├── Owner
+├── Visits
+├── Contracts
+├── Payments
+└── Activity History
+
+You can also add useful real-estate features:
+Photo gallery
+Drag & drop images
+PDF document management
+Contract generation
+PDF invoices
+Receipt generation
+Visit scheduling
+Calendar
+Automatic reminders
+Client matching
+Property recommendations
+Favorites
+Property status history
+Price history
+Owner statements
+Rental payment tracking
+Expense tracking
+Profit calculation
+Commission calculation
+Dashboard statistics
+CSV/Excel export
+PDF reports
+Database backup
+Database restore
+
+For the dashboard:
+Total Properties
+Available
+For Sale
+For Rent
+Sold
+Rented
+Reserved
+
+Active Clients
+Upcoming Visits
+Pending Payments
+Monthly Revenue
+Monthly Expenses
+Agent Commissions
+
+Recent Activity
+Upcoming Appointments
+Properties Recently Added
+
+I would also implement a proper service/repository separation:
+GUI
+ ↓
+Service Layer
+ ↓
+Repository Layer
+ ↓
+SQLAlchemy
+ ↓
+SQLite
