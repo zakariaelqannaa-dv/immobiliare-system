@@ -34,10 +34,10 @@ class BaseRepository(Generic[T]):
         return obj
 
     def delete(self, obj: T, soft: bool = True) -> None:
-        from datetime import datetime
+        from app.database.models import utcnow
         if soft and hasattr(obj, "deleted_at"):
             obj.is_active = False  # type: ignore
-            obj.deleted_at = datetime.utcnow()  # type: ignore
+            obj.deleted_at = utcnow()  # type: ignore
             self.db.flush()
         else:
             self.db.delete(obj)

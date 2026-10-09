@@ -14,7 +14,10 @@ class StatCard(QFrame):
         super().__init__(parent)
         self.setObjectName("Card")
         lay = QVBoxLayout(self)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(4)
         t = QLabel(title); t.setObjectName("CardTitle")
+        t.setWordWrap(True)
         self.val = QLabel(value); self.val.setObjectName("CardValue")
         lay.addWidget(t); lay.addWidget(self.val)
 
@@ -29,21 +32,34 @@ class SearchBar(QWidget):
         super().__init__(parent)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
         self.edit = QLineEdit()
         self.edit.setPlaceholderText(placeholder)
         self.edit.setToolTip("Invio per cercare")
+        self.edit.setClearButtonEnabled(True)
         btn = QPushButton("Cerca")
         btn.clicked.connect(lambda: self.searched.emit(self.edit.text()))
         self.edit.returnPressed.connect(lambda: self.searched.emit(self.edit.text()))
         lay.addWidget(self.edit, 1)
         lay.addWidget(btn)
 
+    def text(self) -> str:
+        return self.edit.text()
+
+    def set_text(self, v: str) -> None:
+        self.edit.setText(v)
+
+    def focus_search(self) -> None:
+        self.edit.setFocus()
+        self.edit.selectAll()
+
 
 class EmptyState(QLabel):
     def __init__(self, text: str = "Nessun dato", parent=None):
         super().__init__(text, parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setStyleSheet("color:#7a8aa0; padding:24px;")
+        self.setWordWrap(True)
+        self.setMinimumHeight(64)
 
 
 class Gallery(QWidget):
@@ -68,11 +84,14 @@ class Gallery(QWidget):
             if w:
                 w.deleteLater()
         if not items:
-            self.grid.addWidget(EmptyState("Nessuna foto — trascina immagini qui o usa Aggiungi"))
+            self.grid.addWidget(EmptyState("Nessuna foto — usa Aggiungi per caricare immagini"))
             return
         for i, (img_id, path, primary) in enumerate(items):
-            cell = QWidget()
+            cell = QFrame()
+            cell.setObjectName("Card")
             vl = QVBoxLayout(cell)
+            vl.setContentsMargins(8, 8, 8, 8)
+            vl.setSpacing(6)
             lab = QLabel()
             lab.setFixedSize(160, 120)
             lab.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -84,6 +103,8 @@ class Gallery(QWidget):
             else:
                 lab.setText("—")
             cap = QLabel(("★ " if primary else "") + f"#{img_id}")
+            if primary:
+                cap.setStyleSheet("font-weight: bold; color: #2f80ed;")
             btns = QHBoxLayout()
             b1 = QPushButton("Primaria"); b1.setObjectName("Ghost")
             b1.clicked.connect(lambda _=False, _id=img_id: self.primary_requested.emit(_id))

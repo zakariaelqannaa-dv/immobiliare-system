@@ -24,12 +24,16 @@ def test_auth_lockout(db):
             authenticate(db, "u1", "bad")
         except ValueError:
             pass
+    db.refresh(u)
+    assert u.failed_attempts >= 5 or u.locked_until is not None
     try:
         authenticate(db, "u1", "Strong123!")
-        locked = False
+        locked = u.locked_until is not None
+        # if lockout window elapsed in fast CI, at least attempts were counted
+        assert locked or u.failed_attempts >= 5
     except ValueError as e:
-        locked = "bloccato" in str(e).lower() or "credenziali" in str(e).lower()
-    assert locked or True  # lockout engaged or attempts counted
+        msg = str(e).lower()
+        assert "bloccato" in msg or "credenziali" in msg or "tentativi" in msg
     assert u.id is not None
 
 

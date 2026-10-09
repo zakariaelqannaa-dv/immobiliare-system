@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.config.settings import settings
 from app.database import models as m
+from app.database.models import utcnow
 from app.repositories.audit import record
 from app.security import password as pwd
 from app.security.permissions import require, PERMISSIONS, ROLE_PERMS
@@ -160,7 +161,7 @@ def dashboard_stats(db: Session) -> dict:
         "reserved": cnt(status=m.PropertyStatus.RESERVED),
         "clients": db.query(m.Client).filter(m.Client.is_active.is_(True)).count(),
         "upcoming_visits": db.query(m.Visit).filter(
-            m.Visit.scheduled_at >= datetime.utcnow(),
+            m.Visit.scheduled_at >= utcnow(),
             m.Visit.status.in_([m.VisitStatus.SCHEDULED, m.VisitStatus.CONFIRMED])).count(),
         "pending_payments": db.query(m.Payment).filter(
             m.Payment.status == m.PaymentStatus.PENDING).count(),
@@ -177,7 +178,7 @@ def recent_activity(db: Session, limit=15):
 
 def upcoming_appointments(db: Session, limit=10):
     return db.query(m.Appointment).filter(
-        m.Appointment.starts_at >= datetime.utcnow(),
+        m.Appointment.starts_at >= utcnow(),
         m.Appointment.is_done.is_(False)).order_by(
         m.Appointment.starts_at).limit(limit).all()
 

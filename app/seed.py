@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from app.config.settings import settings
 from app.database.connection import init_db, get_session
 from app.database import models as m
+from app.database.models import utcnow
 from app.services.platform_service import ensure_roles_permissions, create_user
 
 
@@ -88,7 +89,7 @@ def seed(reset: bool = False) -> None:
             clis = db.query(m.Client).limit(5).all()
             for p, c in zip(props, clis):
                 db.add(m.Visit(property_id=p.id, client_id=c.id,
-                               scheduled_at=datetime.utcnow() + timedelta(days=2),
+                               scheduled_at=utcnow() + timedelta(days=2),
                                status=m.VisitStatus.SCHEDULED, notes="Visita demo"))
             db.commit()
         if db.query(m.Contract).count() == 0:

@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from app.database.models import utcnow
+
 
 @dataclass
 class Session:
@@ -13,10 +15,10 @@ class Session:
     timeout_min: int = 15
 
     def touch(self) -> None:
-        self.last_activity = datetime.utcnow()
+        self.last_activity = utcnow()
 
     def is_expired(self) -> bool:
-        return datetime.utcnow() - self.last_activity > timedelta(minutes=self.timeout_min)
+        return utcnow() - self.last_activity > timedelta(minutes=self.timeout_min)
 
 
 _current: Session | None = None
@@ -25,7 +27,7 @@ _current: Session | None = None
 def start_session(user_id: int, username: str, timeout_min: int = 15) -> Session:
     global _current
     _current = Session(user_id=user_id, username=username,
-                       last_activity=datetime.utcnow(), timeout_min=timeout_min)
+                       last_activity=utcnow(), timeout_min=timeout_min)
     return _current
 
 

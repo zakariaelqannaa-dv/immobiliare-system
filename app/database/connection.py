@@ -28,10 +28,13 @@ def get_engine(db_url: str | None = None):
     _engine = create_engine(url, echo=False, future=True, connect_args=connect_args)
 
     @event.listens_for(_engine, "connect")
-    def _fk_on(dbapi_conn, _rec):  # sqlite FK enforcement
+    def _fk_on(dbapi_conn, _rec):  # sqlite FK enforcement + durability tuning
         try:
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA foreign_keys=ON")
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=5000")
+            cur.execute("PRAGMA synchronous=NORMAL")
             cur.close()
         except Exception:
             pass

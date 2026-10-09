@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config.settings import settings
-from app.database.models import User
+from app.database.models import User, utcnow
 from app.security import password as pwd
 from app.security import session as sess
 
@@ -25,7 +25,7 @@ def authenticate(db: Session, login: str, password_value: str) -> User:
     login = (login or "").strip()
     user = db.query(User).filter(
         or_(User.username == login, User.email == login)).first()
-    now = datetime.utcnow()
+    now = utcnow()
     if user is None:
         raise ValueError("Credenziali non valide")
     if not user.is_enabled or not user.is_active:
@@ -68,7 +68,7 @@ def create_reset_token(db: Session, email: str) -> str:
         raise ValueError("Se l'email esiste, riceverai le istruzioni")
     token = secrets.token_urlsafe(32)
     user.reset_token = token
-    user.reset_expires = datetime.utcnow() + timedelta(hours=2)
+    user.reset_expires = utcnow() + timedelta(hours=2)
     _audit(db, user, "password_reset_request", result="ok")
     db.commit()
     return token
@@ -79,7 +79,7 @@ def reset_password(db: Session, token: str, new_password: str) -> None:
     if not ok:
         raise ValueError(msg)
     user = db.query(User).filter(User.reset_token == token).first()
-    if user is None or not user.reset_expires or user.reset_expires < datetime.utcnow():
+    if user is None or not user.reset_expires or user.reset_expires < utcnow():
         raise ValueError("Token non valido o scaduto")
     user.password_hash = pwd.hash_password(new_password)
     user.reset_token = None

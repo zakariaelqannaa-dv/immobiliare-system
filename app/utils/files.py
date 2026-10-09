@@ -9,6 +9,11 @@ from PIL import Image
 
 from app.config.settings import settings
 
+try:
+    Image.MAX_IMAGE_PIXELS = 50_000_000
+except Exception:
+    pass
+
 _UNSAFE = re.compile(r"[^a-zA-Z0-9._-]+")
 
 
@@ -31,10 +36,19 @@ def validate_upload(path: Path | str, kind: str = "doc") -> Path:
     if kind == "image":
         if ext not in settings.allowed_image_exts:
             raise ValueError(f"Tipo immagine non consentito: {ext}")
-        # verify real image
+        # verify real image: load() forces full decode (catches bombs/truncated files)
         try:
             with Image.open(p) as im:
                 im.verify()
+            with Image.open(p) as im2:
+                im2.load()
+                w, h = im2.size
+                if w * h > Image.MAX_IMAGE_PIXELS:
+                    raise ValueError("Immagine troppo grande")
+                if im2.format and im2.format.lower() not in ("jpeg", "jpg", "png", "webp"):
+                    raise ValueError(f"Formato immagine non consentito: {im2.format}")
+        except ValueError:
+            raise
         except Exception:
             raise ValueError("File immagine non valido")
     else:
@@ -52,10 +66,17 @@ def store_photo(src: Path, property_code: str) -> tuple[Path, Path]:
     thumb = dest_dir / f"thumb_{fname}"
     try:
         with Image.open(dest) as im:
-            im.thumbnail((320, 320))
-            if im.mode in ("RGBA", "P"):
+            im.load()
+            im.thumbnail((640, 640))
+            if im.mode in ("RGBA", "P", "LA"):
+                bg = Image.new("RGB", im.size, (255, 255, 255))
+                if im.mode == "P":
+                    im = im.convert("RGBA")
+                bg.paste(im, mask=im.split()[-1] if im.mode in ("RGBA", "LA") else None)
+                im = bg
+            elif im.mode != "RGB":
                 im = im.convert("RGB")
-            im.save(thumb, "JPEG", quality=80)
+            im.save(thumb, "JPEG", quality=82, optimize=True)
     except Exception:
         thumb = dest
     return dest, thumb

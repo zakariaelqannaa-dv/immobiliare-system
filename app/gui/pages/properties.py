@@ -8,10 +8,11 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 
                                QSplitter, QGroupBox)
 from PySide6.QtCore import Qt
 from app.database import models as m
-from app.gui.helpers import fill_table, selected_id, confirm, error, success, info, gate
+from app.gui.helpers import fill_table, selected_id, confirm, error, success, info, gate, style_table
 from app.gui.widgets import SearchBar, Gallery
 from app.services import property_service as svc
 from app.services import platform_service as plat
+from app.utils.formatting import money
 
 
 def _enum_items(enum_cls) -> list[str]:
@@ -290,7 +291,7 @@ class PropertiesPage(QWidget):
         try:
             rows, _total = svc.search_properties(db, self._filters(), limit=300)
             fill_table(self.table, ["ID", "Codice", "Tipo", "Città", "Prezzo", "Mq", "Stato"],
-                       [[p.id, p.code, p.ptype.value, p.city, f"{p.price:,.0f}",
+                       [[p.id, p.code, p.ptype.value, p.city, money(p.price),
                          p.surface, p.status.value] for p in rows],
                        ids=[p.id for p in rows])
         except Exception as e:

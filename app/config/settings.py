@@ -19,24 +19,31 @@ def _env(name: str, default: str) -> str:
     return os.getenv(name, default)
 
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
 @dataclass
 class Settings:
     db_url: str = field(default_factory=lambda: _env("IMMOBILIARE_DB_URL", f"sqlite:///{(BASE_DIR / 'data' / 'immobiliare.db').as_posix()}"))
     language: str = field(default_factory=lambda: _env("IMMOBILIARE_LANGUAGE", "it"))
     theme: str = field(default_factory=lambda: _env("IMMOBILIARE_THEME", "light"))
-    backup_dir: Path = field(default_factory=lambda: Path(_env("IMMOBILIARE_BACKUP_DIR", str(BASE_DIR / "backups"))))
-    doc_dir: Path = field(default_factory=lambda: Path(_env("IMMOBILIARE_DOC_DIR", str(BASE_DIR / "documents"))))
+    backup_dir: Path = field(default_factory=lambda: Path(_env("IMMOBILIARE_BACKUP_DIR", str(BASE_DIR / "backups"))).expanduser())
+    doc_dir: Path = field(default_factory=lambda: Path(_env("IMMOBILIARE_DOC_DIR", str(BASE_DIR / "documents"))).expanduser())
     data_dir: Path = field(default_factory=lambda: BASE_DIR / "data")
-    session_timeout_min: int = field(default_factory=lambda: int(_env("IMMOBILIARE_SESSION_TIMEOUT_MIN", "15")))
-    max_login_attempts: int = field(default_factory=lambda: int(_env("IMMOBILIARE_MAX_LOGIN_ATTEMPTS", "5")))
-    lockout_seconds: int = field(default_factory=lambda: int(_env("IMMOBILIARE_LOCKOUT_SECONDS", "300")))
+    session_timeout_min: int = field(default_factory=lambda: _env_int("IMMOBILIARE_SESSION_TIMEOUT_MIN", 15))
+    max_login_attempts: int = field(default_factory=lambda: _env_int("IMMOBILIARE_MAX_LOGIN_ATTEMPTS", 5))
+    lockout_seconds: int = field(default_factory=lambda: _env_int("IMMOBILIARE_LOCKOUT_SECONDS", 300))
     company_name: str = field(default_factory=lambda: _env("IMMOBILIARE_COMPANY", "Immobiliare Demo S.r.l."))
     currency: str = field(default_factory=lambda: _env("IMMOBILIARE_CURRENCY", "EUR"))
     date_format: str = field(default_factory=lambda: _env("IMMOBILIARE_DATE_FORMAT", "%d/%m/%Y"))
-    max_upload_mb: int = 15
+    max_upload_mb: int = field(default_factory=lambda: _env_int("IMMOBILIARE_MAX_UPLOAD_MB", 15))
+    backup_keep: int = field(default_factory=lambda: _env_int("IMMOBILIARE_BACKUP_KEEP", 10))
     allowed_image_exts: tuple = (".jpg", ".jpeg", ".png", ".webp")
     allowed_doc_exts: tuple = (".pdf", ".png", ".jpg", ".jpeg", ".docx", ".xlsx", ".csv", ".txt")
-    backup_keep: int = 10
 
     def ensure_dirs(self) -> None:
         for p in (self.data_dir, self.backup_dir, self.doc_dir):

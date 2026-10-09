@@ -1,9 +1,10 @@
 """Visits + appointments/calendar + tasks + notifications."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.database import models as m
+from app.database.models import utcnow
 from app.repositories.audit import record
 from app.security.permissions import require
 
@@ -20,17 +21,22 @@ def create_visit(db: Session, user, data: dict) -> m.Visit:
         raise ValueError("Immobile e cliente obbligatori")
     if isinstance(data.get("scheduled_at"), str):
         data["scheduled_at"] = datetime.fromisoformat(data["scheduled_at"])
-    v = m.Visit(**data)
+    v = m.Visit(**{k: val for k, val in data.items() if hasattr(m.Visit, k)})
     if isinstance(v.status, str):
         v.status = m.VisitStatus(v.status)
-    db.add(v); db.flush()
-    # mirror calendar appointment
-    db.add(m.Appointment(title=f"Visita {v.id} immobile {v.property_id}",
-                         atype=m.AppointmentType.VISIT, starts_at=v.scheduled_at,
-                         property_id=v.property_id, client_id=v.client_id,
-                         agent_id=v.agent_id))
-    record(db, user, "create", "visit", str(v.id))
-    db.commit(); db.refresh(v)
+    try:
+        db.add(v); db.flush()
+        # mirror calendar appointment
+        db.add(m.Appointment(title=f"Visita immobile {v.property_id}",
+                             atype=m.AppointmentType.VISIT, starts_at=v.scheduled_at,
+                             property_id=v.property_id, client_id=v.client_id,
+                             agent_id=v.agent_id))
+        record(db, user, "create", "visit", str(v.id))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(v)
     return v
 
 
@@ -44,14 +50,19 @@ def set_visit_status(db: Session, user, vid: int, status: str, follow_up: str = 
     if follow_up:
         v.follow_up = follow_up
     record(db, user, "update", "visit", str(vid), old={"status": old}, new={"status": status})
-    db.commit(); db.refresh(v)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(v)
     return v
 
 
 def list_visits(db: Session, upcoming_only: bool = False, limit=200):
     q = db.query(m.Visit)
     if upcoming_only:
-        q = q.filter(m.Visit.scheduled_at >= datetime.utcnow(),
+        q = q.filter(m.Visit.scheduled_at >= utcnow(),
                      m.Visit.status.in_([m.VisitStatus.SCHEDULED, m.VisitStatus.CONFIRMED]))
     return q.order_by(m.Visit.scheduled_at.desc()).limit(limit).all()
 
@@ -62,12 +73,17 @@ def create_appointment(db: Session, user, data: dict) -> m.Appointment:
         data["starts_at"] = datetime.fromisoformat(data["starts_at"])
     if isinstance(data.get("ends_at"), str) and data["ends_at"]:
         data["ends_at"] = datetime.fromisoformat(data["ends_at"])
-    a = m.Appointment(**data)
+    a = m.Appointment(**{k: v for k, v in data.items() if hasattr(m.Appointment, k)})
     if isinstance(a.atype, str):
         a.atype = m.AppointmentType(a.atype)
-    db.add(a); db.flush()
-    record(db, user, "create", "appointment", str(a.id), new={"title": a.title})
-    db.commit(); db.refresh(a)
+    try:
+        db.add(a); db.flush()
+        record(db, user, "create", "appointment", str(a.id), new={"title": a.title})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(a)
     return a
 
 
@@ -86,26 +102,40 @@ def complete_appointment(db: Session, user, aid: int, done: bool = True) -> None
     if a:
         a.is_done = done
         record(db, user, "update", "appointment", str(aid), new={"done": done})
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def delete_appointment(db: Session, user, aid: int) -> None:
     a = db.get(m.Appointment, aid)
     if a:
         record(db, user, "delete", "appointment", str(aid))
-        db.delete(a); db.commit()
+        db.delete(a)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
 
 # ---- Tasks ----
 def create_task(db: Session, user, data: dict) -> m.Task:
     if isinstance(data.get("due_at"), str) and data["due_at"]:
         data["due_at"] = datetime.fromisoformat(data["due_at"])
-    t = m.Task(**data)
+    t = m.Task(**{k: v for k, v in data.items() if hasattr(m.Task, k)})
     if isinstance(t.status, str):
         t.status = m.TaskStatus(t.status)
-    db.add(t); db.flush()
-    record(db, user, "create", "task", str(t.id), new={"title": t.title})
-    db.commit(); db.refresh(t)
+    try:
+        db.add(t); db.flush()
+        record(db, user, "create", "task", str(t.id), new={"title": t.title})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(t)
     return t
 
 
@@ -114,7 +144,11 @@ def set_task_status(db: Session, user, tid: int, status: str) -> None:
     if t:
         t.status = m.TaskStatus(status)
         record(db, user, "update", "task", str(tid), new={"status": status})
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
 
 def list_tasks(db: Session, only_open: bool = False, limit=200):
@@ -126,8 +160,13 @@ def list_tasks(db: Session, only_open: bool = False, limit=200):
 
 # ---- Notifications ----
 def notify(db: Session, user_id: int | None, title: str, body: str = "") -> m.Notification:
-    n = m.Notification(user_id=user_id, title=title, body=body)
-    db.add(n); db.commit(); db.refresh(n)
+    n = m.Notification(user_id=user_id, title=title[:200], body=body)
+    try:
+        db.add(n); db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(n)
     return n
 
 
@@ -142,4 +181,8 @@ def mark_read(db: Session, nid: int) -> None:
     n = db.get(m.Notification, nid)
     if n:
         n.is_read = True
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise

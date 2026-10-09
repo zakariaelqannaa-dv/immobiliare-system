@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.database import models as m
+from app.database.models import utcnow
 from app.repositories.audit import record
 from app.security.permissions import require
 from app.utils.duplicates import find_duplicate_property
 from app.utils.files import validate_upload, store_photo
 from app.validators.schemas import PropertyIn
+
+_DENY = {"id", "created_at", "updated_at", "deleted_at"}
 
 
 def _check(user, perm: str) -> None:
@@ -45,7 +49,11 @@ def create_property(db: Session, user, data: dict) -> m.Property:
     db.add(obj)
     db.flush()
     record(db, user, "create", "property", str(obj.id), new={"code": obj.code})
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(obj)
     return obj
 
@@ -61,7 +69,7 @@ def update_property(db: Session, user, prop_id: int, data: dict) -> m.Property:
                                        m.Property.id != prop_id).first():
             raise ValueError("Codice immobile duplicato")
     for k, v in data.items():
-        if hasattr(obj, k) and k not in ("id",):
+        if hasattr(obj, k) and k not in _DENY:
             setattr(obj, k, v)
     for f, enum in (("ptype", m.PropertyType), ("listing", m.ListingType),
                     ("status", m.PropertyStatus), ("energy_class", m.EnergyClass)):
@@ -73,7 +81,11 @@ def update_property(db: Session, user, prop_id: int, data: dict) -> m.Property:
                 pass
     record(db, user, "update", "property", str(obj.id), old=old,
            new={"code": obj.code, "status": str(obj.status), "price": obj.price})
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(obj)
     return obj
 
@@ -86,10 +98,13 @@ def archive_property(db: Session, user, prop_id: int) -> m.Property:
     old = str(obj.status)
     obj.status = m.PropertyStatus.ARCHIVED
     obj.is_active = False
-    from datetime import datetime
-    obj.deleted_at = datetime.utcnow()
+    obj.deleted_at = utcnow()
     record(db, user, "archive", "property", str(obj.id), old={"status": old}, new={"status": "archived"})
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return obj
 
 
@@ -106,11 +121,14 @@ def delete_property(db: Session, user, prop_id: int, hard: bool = False) -> None
     if hard and not n_contracts:
         db.delete(obj)
     else:
-        from datetime import datetime
         obj.is_active = False
-        obj.deleted_at = datetime.utcnow()
+        obj.deleted_at = utcnow()
         obj.status = m.PropertyStatus.ARCHIVED
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def search_properties(db: Session, filters: dict, limit: int = 200, offset: int = 0) -> tuple[list[m.Property], int]:
@@ -176,7 +194,11 @@ def add_photo(db: Session, user, property_id: int, src_path: str | Path) -> m.Pr
     db.add(img)
     db.flush()
     record(db, user, "create", "property_image", str(img.id), new={"property": obj.code})
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(img)
     return img
 
@@ -186,11 +208,15 @@ def set_primary_photo(db: Session, user, image_id: int) -> None:
     img = db.get(m.PropertyImage, image_id)
     if img is None:
         raise ValueError("Immagine non trovata")
-    db.query(m.PropertyImage).filter(
-        m.PropertyImage.property_id == img.property_id).update({"is_primary": False})
-    img.is_primary = True
-    record(db, user, "update", "property_image", str(img.id), new={"primary": True})
-    db.commit()
+    try:
+        db.query(m.PropertyImage).filter(
+            m.PropertyImage.property_id == img.property_id).update({"is_primary": False})
+        img.is_primary = True
+        record(db, user, "update", "property_image", str(img.id), new={"primary": True})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def delete_photo(db: Session, user, image_id: int) -> None:
@@ -206,4 +232,8 @@ def delete_photo(db: Session, user, image_id: int) -> None:
         except Exception:
             pass
     db.delete(img)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

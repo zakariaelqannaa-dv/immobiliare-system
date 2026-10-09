@@ -82,19 +82,26 @@ def create_payment(db: Session, user, data: dict) -> m.Payment:
     _req(user, "payments.edit")
     if float(data.get("amount", 0)) <= 0:
         raise ValueError("Importo non valido")
-    if data.get("reference") and db.query(m.Payment).filter(
-            m.Payment.reference == data["reference"]).first():
+    ref = (data.get("reference") or "").strip() or None
+    data = {**data, "reference": ref}
+    if ref and db.query(m.Payment).filter(
+            m.Payment.reference == ref).first():
         raise ValueError("Riferimento pagamento duplicato")
-    p = m.Payment(**data)
+    p = m.Payment(**{k: v for k, v in data.items() if hasattr(m.Payment, k)})
     if isinstance(p.status, str):
         p.status = m.PaymentStatus(p.status)
     # auto late flag
     if p.status == m.PaymentStatus.PENDING and isinstance(p.due_date, date) \
             and p.due_date < date.today():
         p.status = m.PaymentStatus.LATE
-    db.add(p); db.flush()
-    record(db, user, "create", "payment", str(p.id), new={"amount": p.amount})
-    db.commit(); db.refresh(p)
+    try:
+        db.add(p); db.flush()
+        record(db, user, "create", "payment", str(p.id), new={"amount": p.amount})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(p)
     return p
 
 
@@ -109,7 +116,12 @@ def set_payment_status(db: Session, user, pid: int, status: str) -> m.Payment:
         from datetime import date as d
         p.paid_at = d.today()
     record(db, user, "update", "payment", str(pid), old={"status": old}, new={"status": status})
-    db.commit(); db.refresh(p)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(p)
     return p
 
 
@@ -122,12 +134,16 @@ def list_payments(db: Session, status: str = "", limit=300):
 
 def refresh_late(db: Session) -> int:
     n = 0
-    for p in db.query(m.Payment).filter(m.Payment.status == m.PaymentStatus.PENDING).all():
-        if isinstance(p.due_date, date) and p.due_date < date.today():
-            p.status = m.PaymentStatus.LATE
-            n += 1
-    if n:
-        db.commit()
+    try:
+        for p in db.query(m.Payment).filter(m.Payment.status == m.PaymentStatus.PENDING).all():
+            if isinstance(p.due_date, date) and p.due_date < date.today():
+                p.status = m.PaymentStatus.LATE
+                n += 1
+        if n:
+            db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return n
 
 
@@ -136,10 +152,15 @@ def create_expense(db: Session, user, data: dict) -> m.Expense:
     _req(user, "expenses.edit")
     if float(data.get("amount", 0)) <= 0:
         raise ValueError("Importo non valido")
-    e = m.Expense(**data)
-    db.add(e); db.flush()
-    record(db, user, "create", "expense", str(e.id), new={"amount": e.amount})
-    db.commit(); db.refresh(e)
+    e = m.Expense(**{k: v for k, v in data.items() if hasattr(m.Expense, k)})
+    try:
+        db.add(e); db.flush()
+        record(db, user, "create", "expense", str(e.id), new={"amount": e.amount})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(e)
     return e
 
 
@@ -152,4 +173,9 @@ def delete_expense(db: Session, user, eid: int) -> None:
     e = db.get(m.Expense, eid)
     if e:
         record(db, user, "delete", "expense", str(eid))
-        db.delete(e); db.commit()
+        db.delete(e)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise

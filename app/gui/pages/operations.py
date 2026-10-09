@@ -6,10 +6,11 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 
                                QDialog, QFormLayout, QLineEdit, QComboBox, QDoubleSpinBox,
                                QTextEdit, QLabel, QDateEdit, QDateTimeEdit)
 from PySide6.QtCore import QDate, QDateTime
-from app.gui.helpers import fill_table, selected_id, confirm, error, success, info, gate
+from app.gui.helpers import fill_table, selected_id, confirm, error, success, info, gate, style_table
 from app.gui.widgets import SearchBar
 from app.services import schedule_service as sch
 from app.services import deal_service as deal
+from app.utils.formatting import money, fmt_date
 
 
 def _qdate(d) -> QDate:
@@ -203,7 +204,7 @@ class ContractsPage(QWidget):
             rows = deal.list_contracts(db, self.kind_filter, self.search.edit.text())
             fill_table(self.table, ["ID", "Numero", "Tipo", "Immobile", "Cliente", "Prezzo", "Stato"],
                        [[c.id, c.number, c.ctype.value, c.property_id, c.client_id,
-                         f"{c.price:,.0f}", c.status.value] for c in rows],
+                         money(c.price), c.status.value] for c in rows],
                        ids=[c.id for c in rows])
         except Exception as e:
             error(self, str(e))
@@ -301,8 +302,8 @@ class PaymentsPage(QWidget):
             deal.refresh_late(db)
             rows = deal.list_payments(db, self.f_status.currentText())
             fill_table(self.table, ["ID", "Contratto", "Importo", "Scadenza", "Stato", "Rif."],
-                       [[p.id, p.contract_id, f"{p.amount:,.2f}", str(p.due_date),
-                         p.status.value, p.reference] for p in rows],
+                       [[p.id, p.contract_id, money(p.amount), fmt_date(p.due_date),
+                         p.status.value, p.reference or "—"] for p in rows],
                        ids=[p.id for p in rows])
         except Exception as e:
             error(self, str(e))
@@ -369,7 +370,7 @@ class ExpensesPage(QWidget):
         try:
             rows = deal.list_expenses(db)
             fill_table(self.table, ["ID", "Immobile", "Categoria", "Importo", "Data"],
-                       [[e.id, e.property_id, e.category, f"{e.amount:,.2f}", str(e.date)]
+                       [[e.id, e.property_id, e.category, money(e.amount), fmt_date(e.date)]
                         for e in rows], ids=[e.id for e in rows])
         except Exception as e:
             error(self, str(e))

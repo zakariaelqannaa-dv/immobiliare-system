@@ -8,6 +8,7 @@ from app.gui.helpers import fill_table, selected_id, confirm, error, success, in
 from app.gui.widgets import SearchBar
 from app.services import people_service as ps
 from app.services import platform_service as plat
+from app.utils.formatting import money
 
 
 class _Form(QDialog):
@@ -262,7 +263,7 @@ class ClientsPage(QWidget):
             for r in res:
                 p = r["property"]
                 self.matches.addItem(
-                    f"[{r['score']:.0f}] {p.code} {p.city} €{p.price:,.0f} — {'; '.join(r['reasons'])}")
+                    f"[{r['score']:.0f}] {p.code} {p.city} {money(p.price)} — {'; '.join(r['reasons'])}")
         except Exception as e:
             error(self, str(e))
         finally:

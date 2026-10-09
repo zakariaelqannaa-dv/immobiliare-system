@@ -1,8 +1,28 @@
-# PyInstaller spec example
-# pyinstaller --noconfirm --windowed --name ImmobiliareSystem app/main.py
+# PyInstaller spec example (tested with PyInstaller>=6.22)
+# pyinstaller --noconfirm ImmobiliareSystem.spec
 # -*- mode: python -*-
 block_cipher = None
-a = Analysis(['app/main.py'], pathex=['.'], hiddenimports=['sqlalchemy', 'alembic', 'argon2', 'cryptography', 'keyring.backends'], noarchive=False)
+a = Analysis(
+    ['app/main.py'],
+    pathex=['.'],
+    binaries=[],
+    datas=[('app/i18n', 'app/i18n'), ('alembic', 'alembic')],
+    hiddenimports=[
+        'sqlalchemy.ext.baked', 'sqlalchemy.ext.compiler',
+        'alembic.runtime.migration', 'alembic.autogenerate',
+        'argon2._util', 'argon2._legacy', '_argon2_cffi_bindings',
+        'cryptography.hazmat.bindings._rust', 'cryptography.hazmat.primitives.kdf.pbkdf2',
+        'keyring.backends.windows', 'keyring.backends.SecretService',
+        'keyring.backends.macOS', 'keyrings.alt',
+        'reportlab', 'PIL', 'openpyxl',
+    ],
+    hookspath=[],
+    runtime_hooks=[],
+    excludes=['tkinter', 'tests', 'pytest'],
+    noarchive=False,
+)
 pyz = PYZ(a.pure, a.zipped_data)
 exe = EXE(pyz, a.scripts, name='ImmobiliareSystem', console=False)
 coll = COLLECT(exe, a.binaries, a.datas, name='ImmobiliareSystem')
+# NOTE: data/ documents/ backups/ live next to the exe (see settings.ensure_dirs);
+# for onefile builds resolve paths via sys._MEIPASS-aware BASE_DIR.

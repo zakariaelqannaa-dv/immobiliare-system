@@ -75,8 +75,10 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget()
         for _key, label in NAV:
             self.nav.addItem(label)
-        self.nav.setToolTip("Navigazione moduli (Ctrl+1..9 per i primi)")
-        slay.addWidget(QLabel("  IMMOBILIARE"))
+        self.nav.setToolTip("Navigazione moduli (Ctrl+1..9 per i primi, F5 aggiorna, Ctrl+F cerca)")
+        side_title = QLabel("  IMMOBILIARE")
+        side_title.setObjectName("SidebarLabel")
+        slay.addWidget(side_title)
         slay.addWidget(self.nav, 1)
         lay.addWidget(side, 0)
         self.stack = QStackedWidget()
@@ -117,10 +119,21 @@ class MainWindow(QMainWindow):
         for i in range(min(9, len(NAV))):
             sc = QShortcut(QKeySequence(f"Ctrl+{i + 1}"), self)
             sc.activated.connect(lambda _r=i: self.nav.setCurrentRow(_r))
+        sc_refresh = QShortcut(QKeySequence.Refresh, self)  # F5
+        sc_refresh.setAutoRepeat(False)
+        sc_refresh.activated.connect(self.refresh_current)
+        sc_find = QShortcut(QKeySequence.Find, self)  # Ctrl+F
+        sc_find.activated.connect(self.focus_search)
 
-        # session watchdog: touch on interaction + expire check each 30s
+        # session watchdog: global activity filter + expire check each 30s
         self.setMouseTracking(True)
         self._theme = "light"
+        try:
+            app = QApplication.instance()
+            if app is not None:
+                app.installEventFilter(self)
+        except Exception:
+            pass
         self.watch = QTimer(self)
         self.watch.timeout.connect(self._check_session)
         self.watch.start(30_000)
@@ -151,8 +164,42 @@ class MainWindow(QMainWindow):
     def toggle_theme(self):
         from app.gui.theme import apply_theme
         self._theme = "dark" if self._theme == "light" else "light"
-        apply_theme(QApplication.instance(), self._theme)
-        info(self, f"Tema: {self._theme}")
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app, self._theme)
+        self.status_msg.setText(f"Tema: {self._theme}")
+
+    def refresh_current(self):
+        row = self.nav.currentRow()
+        if row >= 0:
+            self._switch(row)
+
+    def focus_search(self):
+        page = self.stack.currentWidget()
+        bar = getattr(page, "search_bar", None) or getattr(page, "search", None)
+        if bar is not None and hasattr(bar, "focus_search"):
+            bar.focus_search()
+            return
+        # fallback: focus first QLineEdit in current page
+        try:
+            from PySide6.QtWidgets import QLineEdit
+            le = page.findChild(QLineEdit)
+            if le is not None:
+                le.setFocus()
+                le.selectAll()
+        except Exception:
+            pass
+
+    def eventFilter(self, obj, event):
+        try:
+            from PySide6.QtCore import QEvent
+            if event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.KeyPress,
+                                QEvent.Type.Wheel):
+                from app.security import session as sess
+                sess.touch()
+        except Exception:
+            pass
+        return super().eventFilter(obj, event) if hasattr(super(), "eventFilter") else False
 
     def _check_session(self):
         from app.security import session as sess

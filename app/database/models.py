@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional
 from sqlalchemy import (
     Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text,
@@ -16,7 +16,7 @@ class Base(DeclarativeBase):
 
 
 def utcnow() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 # ---------- Enums ----------
@@ -275,7 +275,7 @@ class Visit(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     property_id: Mapped[int] = mapped_column(ForeignKey("properties.id", ondelete="CASCADE"), index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="CASCADE"), index=True)
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"))
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"), index=True)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     status: Mapped[VisitStatus] = mapped_column(Enum(VisitStatus), default=VisitStatus.SCHEDULED, index=True)
     notes: Mapped[str] = mapped_column(Text, default="")
@@ -289,9 +289,9 @@ class Appointment(Base, TimestampMixin):
     atype: Mapped[AppointmentType] = mapped_column(Enum(AppointmentType), default=AppointmentType.MEETING, index=True)
     starts_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    property_id: Mapped[Optional[int]] = mapped_column(ForeignKey("properties.id", ondelete="SET NULL"))
-    client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"))
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"))
+    property_id: Mapped[Optional[int]] = mapped_column(ForeignKey("properties.id", ondelete="SET NULL"), index=True)
+    client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"), index=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"), index=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     is_done: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -304,8 +304,8 @@ class Contract(Base, TimestampMixin, SoftDeleteMixin):
     status: Mapped[ContractStatus] = mapped_column(Enum(ContractStatus), default=ContractStatus.DRAFT, index=True)
     property_id: Mapped[int] = mapped_column(ForeignKey("properties.id", ondelete="RESTRICT"), index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id", ondelete="RESTRICT"), index=True)
-    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("owners.id", ondelete="SET NULL"))
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"))
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("owners.id", ondelete="SET NULL"), index=True)
+    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("agents.id", ondelete="SET NULL"), index=True)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     renewal_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -318,14 +318,14 @@ class Payment(Base, TimestampMixin):
     __tablename__ = "payments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     contract_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contracts.id", ondelete="SET NULL"), index=True)
-    client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"))
-    property_id: Mapped[Optional[int]] = mapped_column(ForeignKey("properties.id", ondelete="SET NULL"))
+    client_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clients.id", ondelete="SET NULL"), index=True)
+    property_id: Mapped[Optional[int]] = mapped_column(ForeignKey("properties.id", ondelete="SET NULL"), index=True)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     paid_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     method: Mapped[str] = mapped_column(String(30), default="transfer")
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), default=PaymentStatus.PENDING, index=True)
-    reference: Mapped[str] = mapped_column(String(80), default="", index=True)
+    reference: Mapped[Optional[str]] = mapped_column(String(80), default=None, nullable=True, index=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     __table_args__ = (UniqueConstraint("reference", name="uq_payment_ref"),)
 
@@ -334,7 +334,7 @@ class Expense(Base, TimestampMixin):
     __tablename__ = "expenses"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     property_id: Mapped[Optional[int]] = mapped_column(ForeignKey("properties.id", ondelete="SET NULL"), index=True)
-    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("owners.id", ondelete="SET NULL"))
+    owner_id: Mapped[Optional[int]] = mapped_column(ForeignKey("owners.id", ondelete="SET NULL"), index=True)
     category: Mapped[str] = mapped_column(String(60), default="maintenance", index=True)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -351,6 +351,7 @@ class Document(Base, TimestampMixin):
     mime: Mapped[str] = mapped_column(String(100), default="")
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     category: Mapped[str] = mapped_column(String(60), default="general")
+    __table_args__ = (Index("ix_doc_owner", "owner_type", "owner_id"),)
 
 
 class Task(Base, TimestampMixin):
